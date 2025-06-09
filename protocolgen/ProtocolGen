@@ -347,7 +347,7 @@
             const firebaseConfig = typeof __firebase_config !== 'undefined' 
                 ? JSON.parse(__firebase_config)
                 : {
-                    apiKey: "AIzaSyD3vBo3tPjhVGaaYJ1kqtO2tPq4LxbCJmU",
+                    apiKey: null, // Ideally, this should also come from the injected __firebase_config
                     authDomain: "proyectgen.firebaseapp.com",
                     projectId: "proyectgen",
                     storageBucket: "proyectgen.firebasestorage.app",
@@ -784,7 +784,13 @@
                         const newPinnedState = !item.pinned;
                         if (currentUser && !currentUser.isAnonymous) {
                             const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
-                            await updateDoc(docRef, { pinned: newPinnedState });
+                            try {
+                                await updateDoc(docRef, { pinned: newPinnedState });
+                            } catch (error) {
+                                console.error("Error updating pin state:", error);
+                                showModal(true, 'Error al actualizar el estado de fijado.', 'alert');
+                                // Optionally re-render or revert UI change here
+                            }
                         } else {
                             item.pinned = newPinnedState;
                             saveHistoryToSession();
@@ -794,7 +800,12 @@
                         showModal(true, `¿Seguro que quieres borrar "${item.name}"?`, 'confirm', async () => {
                              if (currentUser && !currentUser.isAnonymous) {
                                  const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
-                                 await deleteDoc(docRef);
+                                 try {
+                                     await deleteDoc(docRef);
+                                 } catch (error) {
+                                     console.error("Error deleting history item:", error);
+                                     showModal(true, 'Error al borrar el elemento del historial.', 'alert');
+                                 }
                              } else {
                                  history = history.filter(i => i.id !== id);
                                  saveHistoryToSession();
@@ -860,7 +871,13 @@
 
                 if (currentUser && !currentUser.isAnonymous) {
                      const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
-                     await updateDoc(docRef, { name: newName });
+                     try {
+                         await updateDoc(docRef, { name: newName });
+                     } catch (error) {
+                         console.error("Error renaming history item:", error);
+                         showModal(true, 'Error al renombrar el elemento.', 'alert');
+                         // Consider re-rendering history here to revert optimistic UI changes if necessary
+                     }
                 } else {
                     item.name = newName;
                     saveHistoryToSession();
@@ -1105,7 +1122,10 @@
                 try {
                      let chatHistory = [{ role: "user", parts: [{ text: fullPrompt }] }]; // Use fullPrompt
                      const payload = { contents: chatHistory };
-                     const apiKey = "AIzaSyA6tnhisz1htKSmmRoMouu-qonafjcYemQ"; // Security: API key is injected by the environment
+                     // CRITICAL SECURITY WARNING: The API key below MUST be managed by a secure backend proxy.
+                     // It should NOT be hardcoded here or exposed client-side.
+                     // This hardcoded key has been removed for security. Implement a backend proxy for API calls.
+                     const apiKey = null; // Or some placeholder indicating it needs to be server-managed
                      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
                     
                     const response = await fetch(apiUrl, {
@@ -1465,7 +1485,7 @@
                            saveAs(converted, `${filename}.docx`);
                         break;
                     case 'txt':
-                        let textContent = ``;
+                        let textContent = `${title}\n\n`;
                         document.querySelectorAll('.tab-content').forEach(tab => {
                             const tabTitle = document.querySelector(`button[data-tab="${tab.id.replace('tab-content-','')}"]`).textContent;
                             textContent += `\n\n--- ${tabTitle.toUpperCase()} ---\n\n`;
