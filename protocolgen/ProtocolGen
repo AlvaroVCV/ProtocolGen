@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtocolGen: Generador de Protocolos de Simulación Clínica (con IA)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Libraries for exporting files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <!-- Google reCAPTCHA Script -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+    <style>
+        body { font-family: 'Roboto', sans-serif; }
+
+        .tab-button.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+        .dark .tab-button.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .generated-content ul, .generated-content ol { list-style-position: inside; margin-left: 1rem; }
+        .generated-content ul { list-style-type: disc; }
+        .generated-content ol { list-style-type: decimal; }
+        .generated-content p, .generated-content li { line-height: 1.7; margin-bottom: 0.5rem; }
+        .generated-content blockquote { border-left: 4px solid #d1d5db; padding-left: 1rem; margin-left: 1rem; font-style: italic; color: #4b5563; }
+        .dark .generated-content blockquote { border-left-color: #4b5563; color: #9ca3af; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(107, 114, 128, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-content {
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            max-width: 90%;
+            width: 500px;
+        }
+        .modal-backdrop.visible { opacity: 1; visibility: visible; }
+        .modal-backdrop.visible .modal-content { transform: scale(1); }
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            min-width: 160px;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 1;
+            overflow: hidden;
+        }
+        .dropdown-content a {
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            text-align: left;
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+        #historyPanel { transition: transform 0.3s ease-in-out; }
+        #historyPanel.open { transform: translateX(0); }
+        .history-item-actions { opacity: 0; transition: opacity 0.2s ease-in-out; }
+        li:hover .history-item-actions { opacity: 1; }
+        #auth-overlay { backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-300 transition-colors duration-300">
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="fixed inset-0 bg-gray-500 bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl text-center max-w-sm mx-auto">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Bienvenido a ProtocolGen</h2>
+            <p class="mb-6 text-gray-600 dark:text-gray-400">Inicia sesión para guardar tu historial permanentemente en la nube.</p>
+            <button id="signInButton" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center w-full">
+                <svg class="w-6 h-6 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.651 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                Iniciar sesión con Google
+            </button>
+            <p class="my-4 text-sm text-gray-500 dark:text-gray-400">o</p>
+            <button id="guestModeButton" class="text-blue-600 dark:text-blue-400 hover:underline text-sm font-semibold">Continuar como invitado</button>
+        </div>
+    </div>
+
+    <!-- Custom Modal Structure -->
+    <div id="customModal" class="modal-backdrop">
+        <div class="modal-content bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-center">
+            <p id="modalMessage" class="text-lg mb-6"></p>
+            <div id="modal-buttons" class="flex justify-center gap-4">
+                   <button id="modalConfirmButton" class="bg-blue-600 text-white font-bold py-2 px-8 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg hidden">Confirmar</button>
+                   <button id="modalCancelButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-8 rounded-lg hover:bg-gray-400 transition-all duration-300 shadow-md hover:shadow-lg hidden">Cancelar</button>
+                   <button id="modalCloseButton" class="bg-blue-600 text-white font-bold py-2 px-8 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <div id="historyPanel" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white dark:bg-gray-800 shadow-xl transform translate-x-full z-40 flex flex-col rounded-l-lg">
+        <div class="p-4 bg-white dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">Historial de Casos</h3>
+            <button id="closeHistoryPanel" class="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div class="p-4 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <input type="text" id="historySearch" placeholder="Buscar en historial..." class="w-full p-2 border border-gray-300 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+        </div>
+        <ul id="historyList" class="overflow-y-auto flex-grow"></ul>
+    </div>
+
+    <button id="openHistoryPanel" class="hidden fixed top-1/3 right-0 transform -translate-y-1/2 bg-blue-600 text-white p-3 rounded-l-lg shadow-lg hover:bg-blue-700 transition-colors duration-300 z-30">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a1 1 0 011-1h12a1 1 0 110 2H3a1 1 0 01-1-1zM2 15a1 1 0 011-1h12a1 1 0 110 2H3a1 1 0 01-1-1z" /></svg>
+    </button>
+
+    <header class="bg-white dark:bg-gray-800 shadow-md rounded-b-lg">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Protocol<span class="text-blue-600 dark:text-blue-400">Gen</span></h1>
+                <p class="text-gray-600 dark:text-gray-400">Generador de Protocolos para Simulación Clínica</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="theme-toggle" type="button" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white transition-all duration-300">
+                    <svg id="theme-toggle-dark-icon" class="h-6 w-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    <svg id="theme-toggle-light-icon" class="h-6 w-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                </button>
+                <div id="authContainer" class="flex items-center gap-4 text-right"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold mb-4 text-gray-700 dark:text-gray-200">1. Definir el Tema Clínico</h2>
+            <p class="mb-6 text-gray-600 dark:text-gray-400">Introduzca la patología o el escenario clínico. La IA generará un protocolo completo y detallado.</p>
+            <div class="space-y-4">
+                <input type="text" id="topicInput" placeholder="Ej: Shock Séptico en paciente adulto" class="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                
+                <!-- New: Simulation Fidelity Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nivel de Fidelidad de la Simulación:</label>
+                    <div class="flex items-center space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="fidelityLevel" value="ALTA FIDELIDAD" class="form-radio h-5 w-5 text-blue-600" checked>
+                            <span class="ml-2 text-gray-700 dark:text-gray-300">Alta Fidelidad</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="fidelityLevel" value="FIDELIDAD INTERMEDIA" class="form-radio h-5 w-5 text-blue-600">
+                            <span class="ml-2 text-gray-700 dark:text-gray-300">Fidelidad Intermedia</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="fidelityLevel" value="BAJA FIDELIDAD" class="form-radio h-5 w-5 text-blue-600">
+                            <span class="ml-2 text-gray-700 dark:text-gray-300">Baja Fidelidad</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- File Upload for Context -->
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <label for="contextFileInput" class="w-full sm:w-auto flex-shrink-0 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer hover:bg-blue-600 transition-all duration-300 shadow-md hover:shadow-lg text-center">
+                        <input type="file" id="contextFileInput" class="hidden" multiple accept=".txt,.json,.md,.pdf,.png,.jpeg,.jpg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0h-2a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>
+                        Cargar Archivos de Contexto
+                    </label>
+                    <span id="fileStatus" class="text-gray-600 dark:text-gray-400 text-sm italic flex-grow"></span>
+                </div>
+
+                <!-- reCAPTCHA Widget -->
+                <div class="flex justify-center">
+                   <div class="g-recaptcha" data-sitekey="6LcF51krAAAAABBdddXiMXgRqcbvPNPrH7hCjnQk"></div>
+                </div>
+
+                <button id="generateButton" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                    <span id="button-text">✨ Generar con IA</span>
+                    <svg id="spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+                <button id="newProtocolButton" class="w-full bg-gray-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-600 transition-all duration-300 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5"/></svg>
+                    Nuevo Protocolo
+                </button>
+            </div>
+        </div>
+
+        <div id="protocolOutput" class="mt-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold mb-2 text-gray-700 dark:text-gray-200">2. Protocolo de Simulación Generado</h2>
+                    <p class="text-gray-500 dark:text-gray-400">Protocolo para: <span id="outputTopic" class="font-bold"></span></p>
+                </div>
+                <div id="downloadContainer" class="dropdown flex-shrink-0">
+                    <button class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        Descargar
+                    </button>
+                    <div class="dropdown-content bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
+                        <a href="#" id="download-pdf" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 py-2 px-4 transition-all duration-300">PDF</a>
+                        <a href="#" id="download-docx" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 py-2 px-4 transition-all duration-300">Word (.docx)</a>
+                        <a href="#" id="download-txt" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 py-2 px-4 transition-all duration-300">Texto (.txt)</a>
+                        <a href="#" id="save-google-drive" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 py-2 px-4 transition-all duration-300">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M2.77 15.65c-.21.05-.41.13-.61.24-.13.08-.26.15-.39.23-.37.23-.67.53-.9.9-.06.09-.1.18-.15.27-.08.17-.15.34-.2.53-.08.31-.12.63-.12.95 0 .54.12 1.05.35 1.5.09.19.2.37.31.54.2.3.46.54.74.74.22.16.44.3.68.41.35.17.72.28 1.1.34.6.1.86.11 1.7.07.6-.03 1.18-.16 1.7-.38.16-.07.31-.16.45-.25.04-.03.07-.06.1-.09.31-.22.56-.47.76-.77.16-.24.3-.48.41-.74.19-.48.29-1 .29-1.55 0-.25-.02-.5-.07-.74-.08-.34-.2-.67-.34-.99-.07-.15-.14-.3-.23-.44-.22-.36-.49-.66-.8-.91-.12-.09-.25-.17-.38-.25-.23-.15-.47-.28-.72-.39-.12-.05-.24-.1-.36-.14-.3-.11-.6-.18-.92-.2-.5-.05-1.02-.04-1.52.01-.25.03-.5.06-.75.1zm0 0M21.1 11.23c-.1-.08-.18-.15-.26-.22-.26-.21-.5-.46-.7-.73-.09-.13-.17-.26-.24-.39-.18-.32-.27-.66-.27-1 0-.28.05-.55.13-.81.1-.31.26-.6.44-.86.08-.11.16-.21.25-.3.16-.16.33-.3.5-.43.25-.19.5-.35.78-.48.37-.18.75-.3 1.15-.35.54-.07 1.07-.06 1.6.02.26.04.5.1.75.17.3.09.6.2.9.33.22.1.43.23.63.36.27.18.52.37.74.58.18.17.34.35.49.54.26.31.46.66.62 1.02.16.35.25.73.25 1.13 0 .42-.1.83-.29 1.2-.1.19-.21-.37-.34-.54-.25.32-.55.6-.89.83-.16.11-.32-.22-.49.32-.23.14-.47.26-.72.36-.12.05-.25.09-.38.13-.32.1-.65.17-1 .2-.55.05-1.12.04-1.67-.02-.27-.03-.54-.06-.8-.1zm0 0M11.96 1.48c-.2-.04-.37-.05-.55-.05-.26 0-.5.03-.75.09-.33.07-.65.18-.94.34-.14.07-.28.15-.4.24-.26.19-.49.4-.69.64-.17.2-.32.4-.45.62-.23.4-.35.83-.35 1.28 0 .23.03.46.08.68.08.33.2.65.35.95.07.14.15.28.24.41.22.31.48.58.78.8.12.09.25.17.38.25.24.15.48.28.74.39.12.05.25.1.37.14.3.11.62.18.94.2.5.05 1.02.04 1.52-.01.25-.03.5-.06.75-.11.3-.08.6-.17.9-.27.22-.07.43-.17.63-.28.27-.16.51-.35.72-.55.18-.17.35-.35.5-.54.26-.31.46-.66.62-1.02.16-.35.25-.73.25-1.13 0-.42-.1-.83-.29-1.2-.1-.19-.21-.37-.34-.54-.25-.32-.55-.6-.89-.83-.16-.11-.32-.22-.49-.32-.23-.14-.47-.26-.72-.36-.12-.05-.25-.09-.38-.13-.32-.1-.65-.17-1-.2-.55-.05-1.12-.04-1.67.02-.27-.03-.54.06-.8.11zm0 0M11.96 22.52c-.2-.04-.37-.05-.55-.05-.26 0-.5.03-.75.09-.33.07-.65.18-.94.34-.14.07-.28.15-.4.24-.26.19-.49.4-.69.64-.17.2-.32.4-.45.62-.23.4-.35.83-.35 1.28 0 .23.03.46.08.68.08.33.2.65.35.95.07.14.15.28.24.41.22.31.48.58.78.8.12.09.25.17.38.25.24.15.48.28.74.39.12.05-.25.1-.37.14.3.11.62.18.94.2.5.05 1.02.04 1.52-.01.25-.03.5-.06.75-.11.3-.08.6-.17.9-.27.22-.07.43-.17.63-.28.27-.16.51-.35.72-.55.18-.17.35-.35.5-.54.26-.31.46-.66.62-1.02.16-.35.25-.73.25-1.13 0-.42-.1-.83-.29-1.2-.1-.19-.21-.37-.34-.54-.25-.32-.55-.6-.89-.83-.16-.11-.32-.22-.49-.32-.23-.14-.47-.26-.72-.36-.12-.05-.25-.09-.38-.13-.32-.1-.65-.17-1-.2-.55-.05-1.12-.04-1.67.02-.27-.03-.54.06-.8.11z" transform="translate(-1.536 -1.253) scale(1.06)"/></svg>
+                            Google Drive
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-b border-gray-200 dark:border-gray-700">
+                <nav id="tabs" class="flex flex-wrap -mb-px">
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="caso">Caso Clínico</button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="objetivos">Objetivos</button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="prebriefing">Prebriefing Detallado</button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="debriefing">Debriefing Estructurado</button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="critico">P. Crítico</button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 transition-colors duration-300" data-tab="solicitudes">Solicitudes</button>
+                </nav>
+            </div>
+
+            <div id="printable-content" class="generated-content mt-6 text-gray-900 dark:text-gray-300">
+                <div id="tab-content-caso" class="tab-content active"></div>
+                <div id="tab-content-objetivos" class="tab-content"></div>
+                <div id="tab-content-prebriefing" class="tab-content"></div>
+                <div id="tab-content-debriefing" class="tab-content"></div>
+                <div id="tab-content-critico" class="tab-content"></div>
+                <div id="tab-content-solicitudes" class="tab-content">
+                    <h3 class="font-bold text-xl text-gray-900 dark:text-blue-300 mt-6 mb-2">Plantilla de Solicitud de Simulación</h3>
+                    <p class="text-gray-700 dark:text-gray-400 mb-4">Complete los campos a continuación para su solicitud de simulación. Esta información se guardará con el protocolo y se incluirá en las descargas.</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="solicitud-actividad-nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de la actividad/taller:</label>
+                            <input type="text" id="solicitud-actividad-nombre" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-asignatura" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Asignatura/Año de la Carrera:</label>
+                            <input type="text" id="solicitud-asignatura" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-carrera" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Carrera:</label>
+                            <input type="text" id="solicitud-carrera" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-responsable-nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Responsable de la actividad o Nombre:</label>
+                            <input type="text" id="solicitud-responsable-nombre" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-responsable-contacto" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo electrónico o Teléfono de contacto:</label>
+                            <input type="text" id="solicitud-responsable-contacto" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-tutores" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de Tutores participantes:</label>
+                            <input type="text" id="solicitud-tutores" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-estudiantes-por-tutor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº de estudiantes por tutor:</label>
+                            <input type="text" id="solicitud-estudiantes-por-tutor" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-fecha-actividad" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de la actividad:</label>
+                            <input type="text" id="solicitud-fecha-actividad" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-horario" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Horario de la actividad:</label>
+                            <input type="text" id="solicitud-horario" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salas solicitadas (Marque con una X la/las sala(s) que está solicitando):</label>
+                            <div class="flex items-center space-x-4">
+                                <label class="inline-flex items-center">
+                                    <input type="checkbox" id="solicitud-sala-debriefing" value="Sala de debriefing" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700 dark:text-gray-300">Sala de debriefing</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="checkbox" id="solicitud-sala-box-reanimacion" value="Box reanimación" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700 dark:text-gray-300">Box reanimación</span>
+                                </label>
+                                <!-- Add more rooms as needed -->
+                            </div>
+                            <input type="text" id="solicitud-salas-extra" placeholder="Otras salas (especifique)" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300 mt-2">
+                        </div>
+                        <div>
+                            <label for="solicitud-simuladores" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Simuladores/Fantasmas solicitados:</label>
+                            <textarea id="solicitud-simuladores" rows="3" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300"></textarea>
+                        </div>
+                        <div>
+                            <label for="solicitud-actor-horas" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indique Nº horas requerirá el actor/actriz (Si corresponde):</label>
+                            <input type="text" id="solicitud-actor-horas" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300">
+                        </div>
+                        <div>
+                            <label for="solicitud-equipamiento-medico" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipamiento Médico solicitado (indicar Nº de éstos si procede):</label>
+                            <textarea id="solicitud-equipamiento-medico" rows="3" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300"></textarea>
+                        </div>
+                        <div>
+                            <label for="solicitud-insumos" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Insumos solicitados (indicar Nº de éstos si procede):</label>
+                            <textarea id="solicitud-insumos" rows="3" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">¿Requiere grabación/transmisión? Marque con una X:</label>
+                            <div class="flex items-center space-x-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" id="solicitud-grabacion-si" name="grabacion-transmision" value="Si" class="form-radio h-5 w-5 text-blue-600">
+                                    <span class="ml-2 text-gray-700 dark:text-gray-300">Sí</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" id="solicitud-grabacion-no" name="grabacion-transmision" value="No" class="form-radio h-5 w-5 text-blue-600">
+                                    <span class="ml-2 text-gray-700 dark:text-gray-300">No</span>
+                                </label>
+                            </div>
+                            <input type="text" id="solicitud-grabacion-especificacion" placeholder="Especificación (ej: a 2 salas de debriefing)" class="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300 mt-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, deleteDoc, updateDoc, query, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-analytics.js";
+
+        // --- GLOBAL STATE ---
+        let history = [];
+        let currentUser = null;
+        let unsubscribeHistory = null;
+        const GUEST_HISTORY_KEY = 'protocolGenGuestHistory';
+        let confirmAction = null;
+        let contextualFilesContent = ""; // Stores content from uploaded files
+        
+        // --- FIREBASE SETUP ---
+        let app, auth, db, analytics;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        try {
+            // Use environment variables for Firebase config if available, otherwise use provided config
+            const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                ? JSON.parse(__firebase_config)
+                : {
+                    apiKey: "AIzaSyD3vBo3tPjhVGaaYJ1kqtO2tPq4LxbCJmU",
+                    authDomain: "proyectgen.firebaseapp.com",
+                    projectId: "proyectgen",
+                    storageBucket: "proyectgen.firebasestorage.app",
+                    messagingSenderId: "384500061274",
+                    appId: "1:384500061274:web:a2e85712317abeb639f463",
+                    measurementId: "G-LH8QZJT0MH"
+                  };
+
+            app = initializeApp(firebaseConfig);
+            analytics = getAnalytics(app);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+        } catch(e) {
+            console.error("Firebase initialization failed:", e);
+            document.body.innerHTML = `<div class="p-8 text-red-500">Error crítico: No se pudo inicializar la conexión con la base de datos. La aplicación no puede funcionar.</div>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const ui = {
+                topicInput: document.getElementById('topicInput'),
+                generateButton: document.getElementById('generateButton'),
+                protocolOutput: document.getElementById('protocolOutput'),
+                outputTopic: document.getElementById('outputTopic'),
+                tabsContainer: document.getElementById('tabs'),
+                spinner: document.getElementById('spinner'),
+                buttonText: document.getElementById('button-text'),
+                downloadPdfBtn: document.getElementById('download-pdf'),
+                downloadDocxBtn: document.getElementById('download-docx'),
+                downloadTxtBtn: document.getElementById('download-txt'),
+                saveGoogleDriveBtn: document.getElementById('save-google-drive'), // New Google Drive button
+                modal: document.getElementById('customModal'),
+                modalMessage: document.getElementById('modalMessage'),
+                modalCloseButton: document.getElementById('modalCloseButton'),
+                modalConfirmButton: document.getElementById('modalConfirmButton'),
+                modalCancelButton: document.getElementById('modalCancelButton'),
+                authOverlay: document.getElementById('auth-overlay'),
+                signInButton: document.getElementById('signInButton'),
+                guestModeButton: document.getElementById('guestModeButton'),
+                authContainer: document.getElementById('authContainer'),
+                historyPanel: document.getElementById('historyPanel'),
+                openHistoryPanelBtn: document.getElementById('openHistoryPanel'),
+                closeHistoryPanelBtn: document.getElementById('closeHistoryPanel'),
+                historyList: document.getElementById('historyList'),
+                historySearch: document.getElementById('historySearch'),
+                contextFileInput: document.getElementById('contextFileInput'), // New file input
+                fileStatus: document.getElementById('fileStatus'), // New file status span
+                
+                // New UI elements for Solicitudes de Simulación
+                solicitudActividadNombre: document.getElementById('solicitud-actividad-nombre'),
+                solicitudAsignatura: document.getElementById('solicitud-asignatura'),
+                solicitudCarrera: document.getElementById('solicitud-carrera'),
+                solicitudResponsableNombre: document.getElementById('solicitud-responsable-nombre'),
+                solicitudResponsableContacto: document.getElementById('solicitud-responsable-contacto'),
+                solicitudTutores: document.getElementById('solicitud-tutores'),
+                solicitudEstudiantesPorTutor: document.getElementById('solicitud-estudiantes-por-tutor'),
+                solicitudFechaActividad: document.getElementById('solicitud-fecha-actividad'),
+                solicitudHorario: document.getElementById('solicitud-horario'),
+                solicitudSalaDebriefing: document.getElementById('solicitud-sala-debriefing'),
+                solicitudSalaBoxReanimacion: document.getElementById('solicitud-sala-box-reanimacion'),
+                solicitudSalasExtra: document.getElementById('solicitud-salas-extra'),
+                solicitudSimuladores: document.getElementById('solicitud-simuladores'),
+                solicitudActorHoras: document.getElementById('solicitud-actor-horas'),
+                solicitudEquipamientoMedico: document.getElementById('solicitud-equipamiento-medico'),
+                solicitudInsumos: document.getElementById('solicitud-insumos'),
+                solicitudGrabacionSi: document.getElementById('solicitud-grabacion-si'),
+                solicitudGrabacionNo: document.getElementById('solicitud-grabacion-no'),
+                solicitudGrabacionEspecificacion: document.getElementById('solicitud-grabacion-especificacion'),
+            };
+
+            function initThemeSwitcher() {
+                const themeToggleBtn = document.getElementById('theme-toggle');
+                // Ensure the button exists before trying to add listener
+                if (!themeToggleBtn) {
+                    console.warn("Theme toggle button not found. Theme switching may not work.");
+                    return;
+                }
+
+                const applyTheme = (theme) => {
+                    const darkIcon = document.getElementById('theme-toggle-dark-icon');
+                    const lightIcon = document.getElementById('theme-toggle-light-icon');
+                    if (darkIcon && lightIcon) {
+                        if (theme === 'dark') {
+                            document.documentElement.classList.add('dark');
+                            lightIcon.classList.remove('hidden');
+                            darkIcon.classList.add('hidden');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            lightIcon.classList.add('hidden');
+                            darkIcon.classList.remove('hidden');
+                        }
+                    }
+                };
+                
+                // Attach event listener only once
+                if (!themeToggleBtn.dataset.listenerAttached) {
+                    themeToggleBtn.addEventListener('click', () => {
+                        const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+                        localStorage.setItem('theme', newTheme);
+                        applyTheme(newTheme);
+                    });
+                    themeToggleBtn.dataset.listenerAttached = 'true'; // Mark as attached
+                }
+
+                const savedTheme = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                applyTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
+            }
+            
+            // Initialize theme switcher once on DOMContentLoaded
+            initThemeSwitcher();
+
+            ui.generateButton.addEventListener('click', generateProtocol);
+            ui.topicInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') generateProtocol(); });
+            ui.tabsContainer.addEventListener('click', (e) => { if (e.target.classList.contains('tab-button')) switchTab(e.target.dataset.tab); });
+            ui.downloadPdfBtn.addEventListener('click', (e) => { e.preventDefault(); downloadReport('pdf'); });
+            ui.downloadDocxBtn.addEventListener('click', (e) => { e.preventDefault(); downloadReport('docx'); });
+            ui.downloadTxtBtn.addEventListener('click', (e) => { e.preventDefault(); downloadReport('txt'); });
+            ui.saveGoogleDriveBtn.addEventListener('click', (e) => { e.preventDefault(); saveToGoogleDrive(); }); // New event listener
+
+            // Event listener for file input change
+            ui.contextFileInput.addEventListener('change', handleFileSelect);
+            
+            ui.modalCloseButton.addEventListener('click', () => showModal(false));
+            ui.modal.addEventListener('click', (e) => { if (e.target === ui.modal) showModal(false); });
+            ui.modalCancelButton.addEventListener('click', () => {
+                confirmAction = null;
+                showModal(false);
+            });
+            ui.modalConfirmButton.addEventListener('click', () => {
+                if(typeof confirmAction === 'function') {
+                    confirmAction();
+                }
+                confirmAction = null;
+                showModal(false);
+            });
+
+            ui.openHistoryPanelBtn.addEventListener('click', () => ui.historyPanel.classList.add('open'));
+            ui.closeHistoryPanelBtn.addEventListener('click', () => ui.historyPanel.classList.remove('open'));
+            ui.historySearch.addEventListener('input', () => renderHistory(ui.historySearch.value));
+            ui.historyList.addEventListener('click', handleHistoryAction);
+            ui.historyList.addEventListener('dblclick', handleHistoryRenameStart);
+            ui.historyList.addEventListener('focusout', (e) => {
+                if(e.target.tagName === 'INPUT' && e.target.dataset.role === 'rename-input') {
+                    handleHistoryRenameSave(e.target);
+                }
+            });
+            ui.historyList.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.dataset.role === 'rename-input') {
+                    handleHistoryRenameSave(e.target);
+                } else if (e.key === 'Escape' && e.target.tagName === 'INPUT' && e.target.dataset.role === 'rename-input') {
+                    renderHistory(ui.historySearch.value);
+                }
+            });
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user && !user.isAnonymous) {
+                    await handleUserLogin(user);
+                } else {
+                    // This handles both guests who haven't interacted yet and anonymous users
+                    handleGuestSession();
+                }
+            });
+
+            async function handleUserLogin(user) {
+                currentUser = user;
+                ui.authOverlay.classList.add('hidden');
+                ui.openHistoryPanelBtn.classList.remove('hidden');
+                updateAuthUI(user);
+                await migrateGuestHistoryToFirestore(user.uid);
+                loadHistoryFromFirestore(user.uid);
+            }
+
+            async function handleGuestSession() {
+                if (auth.currentUser) {
+                    // Already signed in anonymously
+                    currentUser = auth.currentUser;
+                } else {
+                    try {
+                        const anonUserCredential = await signInAnonymously(auth);
+                        currentUser = anonUserCredential.user;
+                    } catch (anonError) {
+                        console.error("Error signing in anonymously:", anonError);
+                        showModal(true, "No se pudo iniciar una sesión anónima. La funcionalidad será limitada.", 'alert');
+                        updateAuthUI(null);
+                        return;
+                    }
+                }
+
+                if (!sessionStorage.getItem('isGuest') && !currentUser.isAnonymous) {
+                   ui.authOverlay.classList.remove('hidden');
+                } else {
+                   ui.authOverlay.classList.add('hidden');
+                }
+                ui.openHistoryPanelBtn.classList.remove('hidden');
+                updateAuthUI(currentUser);
+                loadHistoryFromSession();
+            }
+
+            ui.signInButton.addEventListener('click', async () => {
+                const provider = new GoogleAuthProvider();
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Error during sign-in:", error);
+                    showModal(true, "Error al iniciar sesión: " + error.message, 'alert');
+                }
+            });
+            
+            ui.guestModeButton.addEventListener('click', () => {
+                sessionStorage.setItem('isGuest', 'true');
+                handleGuestSession();
+            });
+
+            function updateAuthUI(user) {
+                ui.authContainer.innerHTML = '';
+                if (user && !user.isAnonymous) {
+                    const authElement = document.createElement('div');
+                    authElement.className = 'flex items-center gap-4';
+                    authElement.innerHTML = `
+                        <div class="text-right">
+                            <div class="font-semibold text-gray-800 dark:text-gray-200">${user.displayName || 'Usuario'}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">${user.email || ''}</div>
+                        </div>
+                        <img src="${user.photoURL || `https://placehold.co/48x48/E2E8F0/4A5568?text=${(user.displayName || 'U').charAt(0)}`}" alt="User photo" class="w-12 h-12 rounded-full">
+                        <button id="signOutButton" class="ml-4 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-all duration-300 shadow-md hover:shadow-lg">Salir</button>
+                    `;
+                    ui.authContainer.appendChild(authElement);
+                    document.getElementById('signOutButton').addEventListener('click', () => {
+                        sessionStorage.removeItem('isGuest');
+                        signOut(auth);
+                    });
+                } else {
+                    const guestElement = document.createElement('div');
+                    guestElement.innerHTML = `<button id="guestSignInButton" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">Iniciar Sesión</button>`;
+                    ui.authContainer.appendChild(guestElement);
+                    document.getElementById('guestSignInButton').addEventListener('click', () => ui.authOverlay.classList.remove('hidden'));
+                }
+            }
+
+            const getHistoryCollectionPath = (userId) => {
+                if (!userId) return null;
+                return `/artifacts/${appId}/users/${userId}/protocols`;
+            };
+            
+            function loadHistoryFromSession() {
+                if (unsubscribeHistory) unsubscribeHistory();
+                const storedHistory = sessionStorage.getItem(GUEST_HISTORY_KEY);
+                history = storedHistory ? JSON.parse(storedHistory) : [];
+                renderHistory();
+            }
+
+            function saveHistoryToSession() {
+                sessionStorage.setItem(GUEST_HISTORY_KEY, JSON.stringify(history));
+            }
+
+            async function migrateGuestHistoryToFirestore(userId) {
+                const guestData = sessionStorage.getItem(GUEST_HISTORY_KEY);
+                if (!guestData) return;
+                const guestHistory = JSON.parse(guestData);
+                if (guestHistory.length === 0) return;
+                
+                showModal(true, "Guardando historial de invitado en tu cuenta...", 'alert');
+
+                const batch = writeBatch(db);
+                const collectionPath = getHistoryCollectionPath(userId);
+                if (!collectionPath) return;
+
+                guestHistory.forEach(item => {
+                    const docRef = doc(collection(db, collectionPath));
+                    const {id, ...dataToSave} = item;
+                    batch.set(docRef, dataToSave);
+                });
+                
+                try {
+                    await batch.commit();
+                    sessionStorage.removeItem(GUEST_HISTORY_KEY);
+                    showModal(true, "¡Historial de invitado guardado con éxito!", 'alert');
+                } catch(error) {
+                    console.error("Error migrating history:", error);
+                    showModal(true, "Error al guardar el historial de invitado.", 'alert');
+                }
+            }
+            
+            function loadHistoryFromFirestore(userId) {
+                if (unsubscribeHistory) unsubscribeHistory();
+                const collectionPath = getHistoryCollectionPath(userId);
+                if (!collectionPath) return;
+                const historyCollection = collection(db, collectionPath);
+                const q = query(historyCollection);
+
+                unsubscribeHistory = onSnapshot(q, (snapshot) => {
+                    history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderHistory();
+                }, (error) => {
+                        console.error("Error loading history:", error);
+                        showModal(true, "No se pudo cargar el historial.", 'alert');
+                });
+            }
+
+            async function addToHistory(topic, protocolData, solicitudData = {}) {
+                const newEntry = {
+                    name: topic,
+                    pinned: false,
+                    createdAt: new Date().toISOString(),
+                    protocolData: JSON.stringify(protocolData),
+                    solicitudData: JSON.stringify(solicitudData) // Save the new solicitud data
+                };
+
+                if (currentUser && !currentUser.isAnonymous) {
+                    try {
+                        const collectionPath = getHistoryCollectionPath(currentUser.uid);
+                        if (!collectionPath) return;
+                        await addDoc(collection(db, collectionPath), newEntry);
+                    } catch (error) {
+                        console.error("Error adding document: ", error);
+                        showModal(true, "Error al guardar en el historial.", 'alert');
+                    }
+                } else {
+                    newEntry.id = `guest-${Date.now()}`;
+                    history.unshift(newEntry);
+                    saveHistoryToSession();
+                    renderHistory();
+                }
+            }
+
+            // Function to handle file selection and read content
+            async function handleFileSelect(event) {
+                const files = event.target.files;
+                if (files.length === 0) {
+                    ui.fileStatus.textContent = "";
+                    contextualFilesContent = "";
+                    return;
+                }
+
+                ui.fileStatus.textContent = `Procesando ${files.length} archivo(s)...`;
+                let allContent = "";
+                let processedCount = 0; 
+                let extractedTextFilesCount = 0;
+                let skippedFilesNames = []; 
+
+                const readerPromises = Array.from(files).map(file => {
+                    return new Promise((resolve, reject) => {
+                        if (file.type.startsWith('text/') || file.type === 'application/json' || file.name.endsWith('.md')) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                allContent += `\n--- Contenido de ${file.name} ---\n${e.target.result}\n--------------------------\n`;
+                                extractedTextFilesCount++;
+                                resolve();
+                            };
+                            reader.onerror = () => {
+                                console.error(`Error al leer el archivo ${file.name}`);
+                                skippedFilesNames.push(`${file.name} (error de lectura)`);
+                                resolve();
+                            };
+                            reader.readAsText(file);
+                        } else {
+                            skippedFilesNames.push(`${file.name} (formato no soportado)`);
+                            resolve();
+                        }
+                    });
+                });
+
+                await Promise.all(readerPromises);
+                
+                contextualFilesContent = allContent;
+                let message = `Se han seleccionado ${files.length} archivo(s). `;
+                if (extractedTextFilesCount > 0) {
+                    message += `${extractedTextFilesCount} contenido(s) de texto extraído(s) y listo(s) para contextualizar.`;
+                } else {
+                    message += `Ningún contenido de texto extraído para contextualizar.`;
+                }
+                
+                if (skippedFilesNames.length > 0) {
+                    message += ` ${skippedFilesNames.length} archivo(s) ignorado(s) (${skippedFilesNames.map(name => name.split(' (')[0]).join(', ')}).`;
+                }
+                ui.fileStatus.textContent = message;
+            }
+            
+            function renderHistory(filter = '') {
+                ui.historyList.innerHTML = '';
+                const lowerCaseFilter = filter.toLowerCase();
+                const filtered = history.filter(item => item.name.toLowerCase().includes(lowerCaseFilter));
+
+                filtered.sort((a, b) => {
+                    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                });
+
+                if (filtered.length === 0) {
+                    ui.historyList.innerHTML = `<li class="p-4 text-center text-gray-500 dark:text-gray-400">No hay casos que coincidan.</li>`;
+                    return;
+                }
+
+                filtered.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = `border-b border-gray-200 dark:border-gray-700 relative ${item.pinned ? 'bg-blue-50 dark:bg-blue-900/40' : 'bg-white dark:bg-gray-800'}`;
+                    li.dataset.id = item.id;
+
+                    const pinIcon = item.pinned 
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.293 3.293a1 1 0 011.414 0L10 8.586l5.293-5.293a1 1 0 111.414 1.414L11.414 10l5.293 5.293a1 1 0 01-1.414 1.414L10 11.414l-5.293 5.293a1 1 0 01-1.414-1.414L8.586 10 3.293 4.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`
+                        : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 dark:text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>`;
+                    
+                    li.innerHTML = `
+                        <div class="p-3 flex items-center justify-between">
+                            <div class="flex-grow cursor-pointer pr-4" data-action="load">
+                                <span class="font-semibold text-gray-800 dark:text-gray-200" data-role="name">${item.name}</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">${new Date(item.createdAt).toLocaleDateString('es-CL', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            </div>
+                            <div class="history-item-actions flex items-center space-x-1 sm:space-x-2 ml-2">
+                                <button data-action="pin" title="Fijar" class="p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300">${pinIcon}</button>
+                                <button data-action="delete" title="Borrar" class="p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 dark:text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    ui.historyList.appendChild(li);
+                });
+            }
+            
+            async function handleHistoryAction(e) {
+                const button = e.target.closest('button');
+                const loadTarget = e.target.closest('[data-action="load"]');
+                const li = e.target.closest('li');
+                if (!li) return;
+                const id = li.dataset.id;
+                const item = history.find(i => i.id === id);
+                if (!item) return;
+
+                if (button) {
+                    const action = button.dataset.action;
+                    if (action === 'pin') {
+                        const newPinnedState = !item.pinned;
+                        if (currentUser && !currentUser.isAnonymous) {
+                            const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
+                            await updateDoc(docRef, { pinned: newPinnedState });
+                        } else {
+                            item.pinned = newPinnedState;
+                            saveHistoryToSession();
+                            renderHistory(ui.historySearch.value);
+                        }
+                    } else if (action === 'delete') {
+                        showModal(true, `¿Seguro que quieres borrar "${item.name}"?`, 'confirm', async () => {
+                             if (currentUser && !currentUser.isAnonymous) {
+                                 const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
+                                 await deleteDoc(docRef);
+                             } else {
+                                 history = history.filter(i => i.id !== id);
+                                 saveHistoryToSession();
+                                 renderHistory(ui.historySearch.value);
+                             }
+                        });
+                    }
+                } else if (loadTarget) {
+                    try {
+                        let protocolData = {};
+                        let solicitudData = {};
+                        try {
+                            protocolData = JSON.parse(item.protocolData);
+                        } catch (parseError) {
+                            console.error("Error al analizar protocolData del historial:", parseError);
+                            showModal(true, `Error al cargar los datos del protocolo del historial para "${item.name}". Los datos podrían estar corruptos.`, 'alert');
+                            return; // Stop if core protocol data is corrupt
+                        }
+
+                        try {
+                            solicitudData = item.solicitudData ? JSON.parse(item.solicitudData) : {};
+                        } catch (parseError) {
+                            console.warn("Error al analizar solicitudData del historial:", parseError);
+                            // Not critical, continue with empty solicitudData
+                        }
+                        
+                        displayProtocol(item.name, protocolData, solicitudData);
+                        ui.historyPanel.classList.remove('open');
+                    }
+                     catch (err) {
+                        console.error("Error loading history item:", err);
+                        showModal(true, "No se pudo cargar este caso del historial. Los datos podrían estar corruptos.", 'alert');
+                    }
+                }
+            }
+
+            function handleHistoryRenameStart(e) {
+                const nameSpan = e.target.closest('[data-role="name"]');
+                if (!nameSpan) return;
+
+                const currentName = nameSpan.textContent;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentName;
+                input.dataset.role = 'rename-input';
+                input.className = 'w-full p-1 rounded-lg bg-blue-100 dark:bg-blue-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300';
+                
+                nameSpan.parentElement.replaceChild(input, nameSpan);
+                input.focus();
+                input.select();
+            }
+
+            async function handleHistoryRenameSave(inputElement) {
+                const newName = inputElement.value.trim();
+                const li = inputElement.closest('li');
+                const id = li.dataset.id;
+                const item = history.find(i => i.id === id);
+
+                if (!newName || !item || newName === item.name) {
+                    renderHistory(ui.historySearch.value); 
+                    return;
+                }
+
+                if (currentUser && !currentUser.isAnonymous) {
+                     const docRef = doc(db, getHistoryCollectionPath(currentUser.uid), id);
+                     await updateDoc(docRef, { name: newName });
+                } else {
+                    item.name = newName;
+                    saveHistoryToSession();
+                    renderHistory(ui.historySearch.value);
+                }
+            }
+
+            async function generateProtocol() {
+                const recaptchaResponse = grecaptcha.getResponse();
+                if (!recaptchaResponse) {
+                    showModal(true, 'Por favor, completa el reCAPTCHA para continuar.', 'alert');
+                    return;
+                }
+
+                const topic = ui.topicInput.value.trim();
+                if (!topic) {
+                    showModal(true, 'Por favor, introduce un tema clínico.', 'alert');
+                    grecaptcha.reset();
+                    return;
+                }
+                
+                setLoading(true);
+
+                // Get selected fidelity level
+                const fidelityLevel = document.querySelector('input[name="fidelityLevel"]:checked').value;
+
+                // Capture current solicitud data from the form
+                const currentSolicitudData = {
+                    actividad_nombre: ui.solicitudActividadNombre.value,
+                    asignatura: ui.solicitudAsignatura.value,
+                    carrera: ui.solicitudCarrera.value,
+                    responsable_nombre: ui.solicitudResponsableNombre.value,
+                    responsable_contacto: ui.solicitudResponsableContacto.value,
+                    tutores_participantes: ui.solicitudTutores.value,
+                    estudiantes_por_tutor: ui.solicitudEstudiantesPorTutor.value,
+                    fecha_actividad: ui.solicitudFechaActividad.value,
+                    horario_actividad: ui.solicitudHorario.value,
+                    salas_solicitadas: {
+                        debriefing: ui.solicitudSalaDebriefing.checked,
+                        box_reanimacion: ui.solicitudSalaBoxReanimacion.checked,
+                        extras: ui.solicitudSalasExtra.value
+                    },
+                    simuladores_fantasmas: ui.solicitudSimuladores.value,
+                    actor_horas: ui.solicitudActorHoras.value,
+                    equipamiento_medico: ui.solicitudEquipamientoMedico.value,
+                    insumos: ui.solicitudInsumos.value,
+                    requiere_grabacion_transmision: ui.solicitudGrabacionSi.checked ? 'Si' : (ui.solicitudGrabacionNo.checked ? 'No' : ''),
+                    grabacion_especificacion: ui.solicitudGrabacionEspecificacion.value
+                };
+
+
+                let fidelityInstructions = `
+                    // Master Prompt: Entendiendo el Concepto de Fidelidad en Simulación Clínica
+                    // Objetivo del Prompt: Establecer una comprensión fundamental y matizada de la fidelidad clínica. Este prompt sirve como el ancla conceptual para todos los demás.
+                    // Instrucciones para la IA:
+                    // Al procesar solicitudes para crear protocolos de simulación, debes aplicar el siguiente marco conceptual de 'fidelidad'. La fidelidad se define como el grado de realismo de los modelos utilizados en la simulación. Sin embargo, no es un concepto único. Debes entenderlo como un espectro (baja, intermedia, alta) y como un concepto multidimensional (física, conceptual, emocional).
+                    // Regla de Oro: El objetivo no es siempre la máxima fidelidad, sino la fidelidad apropiada para los objetivos de aprendizaje del escenario. Una simulación exitosa no se basa en el realismo por sí misma, sino en el compromiso de los participantes con sus roles y en la conexión que logran con la experiencia. La fidelidad conceptual (la lógica clínica del caso) es un prerrequisito para el éxito de cualquier simulación.
+
+                    // Dimensiones de una Simulación Exitosa:
+                    // Fidelidad Física: El realismo del simulador y el entorno, crucial para desarrollar habilidades manuales.
+                    // Fidelidad Conceptual: La lógica y precisión clínica del caso. El escenario debe tener sentido desde el punto de vista médico. Es fundamental para desarrollar el razonamiento clínico y la habilidad para solucionar problemas.
+                    // Fidelidad Emocional o Vivencial: La capacidad del escenario para evocar emociones y reacciones auténticas en los participantes. Es clave para la retención de información y el manejo de procesos complejos.
+                    // Regla de Aplicación Avanzada: Al generar un protocolo, prioriza siempre la fidelidad conceptual. Un caso clínicamente ilógico fracasará sin importar cuán avanzado sea el maniquí. Luego, selecciona el nivel de fidelidad física y las estrategias para la fidelidad emocional que mejor apoyen los objetivos de aprendizaje del escenario. Recuerda que el objetivo final es el compromiso del participante, no el realismo por el realismo.
+
+                    A continuación, se te pedirá generar un protocolo de **${fidelityLevel}**. Considera estas instrucciones específicas para el nivel de fidelidad seleccionado:
+                `;
+
+                if (fidelityLevel === "ALTA FIDELIDAD") {
+                    fidelityInstructions += `
+                        // Aplicación de ALTA FIDELIDAD
+                        // Definición: La simulación de alta fidelidad implica la integración de múltiples variables fisiológicas, manejadas mediante computadoras con tecnología avanzada en hardware y software para aumentar el realismo.
+                        // Características Clave: Utiliza maniquíes de cuerpo completo que simulan respuestas fisiológicas complejas (respiración, pulso, ruidos cardíacos y pulmonares, etc.). Permite la interacción en tiempo real: las acciones del equipo modifican el estado del "paciente". Diseñada para replicar situaciones clínicas complejas y dinámicas.
+                        // Objetivo Educativo Principal: Evaluar y desarrollar la toma de decisiones, el trabajo en equipo, el liderazgo, la comunicación y el manejo de crisis en un contexto clínico realista, además de las habilidades técnicas.
+                        // Ejemplos: Manejo de un parto complicado, atención de paro cardiorrespiratorio, shock séptico en UCI.
+                        // Para este nivel de fidelidad, asegura que las secciones de caso clínico, prebriefing, debriefing y pensamiento crítico sean *muy detalladas, complejas y con múltiples variables e interacciones*.
+                    `;
+                } else if (fidelityLevel === "BAJA FIDELIDAD") {
+                    fidelityInstructions += `
+                        // Aplicación de BAJA FIDELIDAD
+                        // Definición: La simulación de baja fidelidad utiliza simuladores de un segmento anatómico para practicar procedimientos y maniobras específicas, tanto invasivas como no invasivas.
+                        // Características Clave: Se enfoca en una parte específica del cuerpo. No suelen tener componentes electrónicos o de software complejos. Permite la repetición de una tarea manual concreta.
+                        // Objetivo Educativo Principal: Desarrollar y refinar una habilidad psicomotora aislada. Es ideal para las primeras etapas del aprendizaje de un procedimiento (ej., venopunción, RCP básica, exploración).
+                        // Ejemplos: Brazo para venopunción, torso para RCP básica, modelo pélvico para exploración ginecológica.
+                        // Para este nivel de fidelidad, asegúrate que las secciones de caso clínico, prebriefing, debriefing y pensamiento crítico sean *simples, concisas y enfocadas en una habilidad o concepto principal, con menos detalles y complejidad en la progresión y las variables*. El caso clínico debe ser una presentación básica de la enfermedad para el diagnóstico o un procedimiento inicial.
+                    `;
+                } else if (fidelityLevel === "FIDELIDAD INTERMEDIA") {
+                    fidelityInstructions += `
+                        // Aplicación de FIDELIDAD INTERMEDIA
+                        // Definición: La simulación de fidelidad intermedia combina el uso de una parte anatómica con computadoras que permiten manejar y responder a ciertas variables.
+                        // Características Clave: Combina un modelo físico con software. Proporciona retroalimentación simple y en tiempo real sobre la acción del alumno. Suele centrarse en una tarea, pero con una capa adicional de complejidad.
+                        // Objetivo Educativo Principal: Practicar una habilidad técnica mientras se aprende a interpretar una respuesta fisiológica o del equipo directamente relacionada con esa habilidad.
+                        // Ejemplos: Cabeza de intubación con feedback de posición, simulador de brazo para toma de presión arterial que permite al instructor variar los valores y generar los sonidos de Korotkoff correspondientes.
+                        // Para este nivel de fidelidad, el protocolo debe tener una complejidad moderada, conectando una habilidad técnica con una respuesta directa. La narrativa puede tener una progresión simple pero con retroalimentación clara. Las preguntas de debriefing y pensamiento crítico deben explorar la relación entre la acción y la consecuencia.
+                    `;
+                }
+
+
+                let fullPrompt = `
+                    ${fidelityInstructions}
+                    
+                    **Contexto Adicional Proporcionado por el Usuario:**
+                    ${contextualFilesContent || "No se proporcionaron archivos de contexto adicionales."}
+
+                    **Instrucción Clave para Variedad:** Para el tema "${topic}", genera un caso clínico *único y diferente cada vez*, incluso si se solicita el mismo tema repetidamente. Varía la presentación clínica, las complicaciones (si aplica para la fidelidad), el perfil del paciente, o los desenlaces posibles para asegurar diversidad.
+                    **Ejemplo Específico para "Diabetes Mellitus 2":** Si el tema es "Diabetes Mellitus 2", no generes solo cetoacidosis diabética. Considera también escenarios como:
+                    - Diagnóstico inicial de DM2 y educación.
+                    - Manejo ambulatorio de DM2 (ajuste de medicación, monitoreo).
+                    - Hipoglucemia severa.
+                    - Hiperglucemia sin cetoacidosis.
+                    - Complicaciones crónicas (neuropatía, nefropatía) con una presentación aguda.
+
+                    Asegúrate de que toda la salida JSON sea válida y completa.
+
+                    La estructura del JSON debe ser la siguiente:
+                    {
+                      "caso_clinico": {
+                        "titulo": "Un título clínico, específico y descriptivo para el caso. Ej: 'Paciente de 68 años con exacerbación aguda de EPOC e insuficiencia respiratoria hipercápnica'.",
+                        "fundamentos_y_objetivos": {
+                            "necesidad_detectada": "Descripción de la brecha de conocimiento o desempeño que el caso busca abordar (ej. 'Dificultad recurrente en el reconocimiento temprano del shock').",
+                            "audiencia_objetivo": "Perfil de los alumnos (ej. 'residentes de primer año de medicina de urgencias')."
+                        },
+                        "perfil_del_paciente_edi": {
+                            "demografia": "Nombre, Edad, Género, Peso, Alergias.",
+                            "historia_medica_pasada": "Antecedentes médicos, quirúrgicos, medicamentos actuales, hábitos.",
+                            "historia_social_y_contexto": "Profesión, contexto familiar, determinantes sociales de la salud relevantes, evitando estereotipos."
+                        },
+                        "narrativa_y_progresion_dinamica": {
+                            "estado_inicial": {
+                                "descripcion_escena": "Descripción de cómo encuentran al paciente al entrar a la sala.",
+                                "signos_vitales": "FC, PA, FR, SatO2, Temp, etc.",
+                                "hallazgos_examen_fisico": "Apariencia, nivel de conciencia, hallazgos clave."
+                            },
+                            "progresion_del_escenario": [
+                                {
+                                    "estado_nombre": "Nombre del estado (ej. 'Shock Compensado Inicial').",
+                                    "descripcion_clinica": "Signos vitales y hallazgos en este estado.",
+                                    "desencadenante_para_siguiente_estado": "La acción del alumno O el paso del tiempo que cambia el estado (ej. 'SI pasan 5 min sin administrar fluidos, PASAR a Estado 2: Descompensación')."
+                                }
+                            ],
+                            "puntos_finales_escenario": {
+                                "criterio_ideal": "La condición que debe cumplirse para un final exitoso.",
+                                "criterio_de_tiempo": "Tiempo máximo del escenario.",
+                                "criterio_de_detencion": "La condición crítica que detiene el escenario (ej. 'Paro cardíaco no revertido')."
+                            }
+                        }
+                      },
+                      "objetivos_aprendizaje": {
+                          "generales": ["Objetivo general amplio enfocado en un proceso. Ej: 'Aplicar un enfoque sistemático para la evaluación y manejo inicial del paciente con [condición]'.", "Otro objetivo general. Ej: 'Demostrar habilidades de trabajo en equipo y comunicación efectiva durante una situación de alta complejidad.'"],
+                          "especificos": ["Objetivo específico SMART. Ej: 'Realizar una evaluación primaria (ABCDE) e identificar la insuficiencia respiratoria en los primeros 5 minutos'.", "Otro objetivo SMART. Ej: 'Iniciar ventilación no invasiva (VNI) con parámetros adecuados dentro de los 10 minutos posteriores a la identificación de la insuficiencia hipercápnica'.", "Un tercer objetivo SMART. Ej: 'Comunicar de manera clara y en asa cerrada las indicaciones al equipo de enfermería.'"]
+                      },
+                      "prebriefing_detallado": {
+                        "titulo": "Protocolo de Pre-briefing de ${fidelityLevel}",
+                        "fases": [
+                          {
+                            "fase": "1. Creación del Contenedor Seguro y la Alianza de Aprendizaje",
+                            "duracion_min": 7,
+                            "script_premisa_basica_y_errores": "Guion para el facilitador que combina una bienvenida cálida, la declaración explícita de la 'Premisa Básica' (asumimos que todos son inteligentes, capaces y quieren mejorar) y la normalización del error como una oportunidad de aprendizaje valiosa y esperada, usando la analogía de 'los errores son enigmas por resolver, no crímenes por castigar'.",
+                            "acuerdo_confidencialidad_detallado": "Texto claro para el acuerdo de confidencialidad, especificando que tanto el desempeño individual como el del equipo son confidenciales y no deben discutirse fuera de la sesión, mencionando los límites (ej. si se detecta una conducta no profesional).",
+                            "mecanismo_pausa_seguridad": "Descripción del mecanismo de pausa (ej., decir 'pausa técnica' o levantar la mano) que los participantes pueden usar si se sienten genuinamente angustiados o inseguros, para detener el escenario sin penalización."
+                          },
+                          {
+                            "fase": "2. Orientación al Entorno y Establecimiento del Contrato de Ficción",
+                            "duracion_min": 8,
+                            "orientacion_entorno_y_equipo": "Lista de verificación de elementos a mostrar y explicar: ubicación y uso del monitor, carro de paro, teléfono para pedir ayuda, sistema para ver resultados de laboratorio, etc.",
+                            "capacidades_y_limitaciones_simulador": { "capacidades": "Lista de lo que el simulador SÍ puede hacer (ej. 'Tiene ruidos cardíacos y respiratorios reales', 'Responde verbalmente a preguntas').", "limitaciones": "Lista explícita de lo que el simulador NO puede hacer y cómo se manejará (ej. 'No presenta cianosis visible, se lo informaré verbalmente si ocurre')." },
+                            "script_contrato_ficcion": "Guion explícito y colaborativo para establecer el contrato. Debe incluir: 1) Reconocimiento del facilitador sobre las limitaciones ('Sabemos que la simulación no es perfecta...') y 2) La solicitud de compromiso a los alumnos ('...a cambio, les pedimos que se sumerjan en sus roles y actúen como si fuera real')."
+                          },
+                          {
+                            "fase": "3. Presentación del Caso y Objetivos (Sin Spoilers)",
+                            "duracion_min": 5,
+                            "objetivos_aprendizaje_claros": ["Objetivo clave 1", "Objetivo clave 2"], 
+                            "reporte_entrega_clinico": "Guion de un reporte de entrega (handover) realista, como lo haría una enfermera o un paramédico. Debe presentar los datos clínicos del caso, pero SIN usar términos diagnósticos que lo revelen."
+                          },
+                          {
+                            "fase": "4. Asignación de Roles y Aclaración Final",
+                            "duracion_min": 5,
+                            "definicion_roles_participantes": "Descripción de responsabilidades clave para cada rol del equipo (Líder, Vía Aérea, Medicamentos, etc.).",
+                            "definicion_rol_facilitador": "Descripción clara de las funciones del facilitador durante el escenario (ej. 'Seré la voz del paciente y de cualquier interconsulta que soliciten').",
+                            "script_cierre_y_preguntas": "Un guion final para confirmar la comprensión de los roles ('¿Alguien tiene alguna pregunta sobre su rol?') y hacer una última revisión antes de comenzar."
+                          }
+                        ]
+                      },
+                      "debriefing_estructurado": {
+                        "titulo": "Protocolo de Debriefing Estructurado de ${fidelityLevel}",
+                        "fases": [
+                           {
+                            "fase": "1. Apertura y Re-establecimiento del Contenedor Seguro",
+                            "duracion_min": 4,
+                            "script_apertura": "Guion de bienvenida al debriefing. Agradecer al equipo por su compromiso y esfuerzo.",
+                            "reafirmacion_ambiente_seguro": "Script para recordar explícitamente la Premisa Básica ('Recordemos que todos creemos que cada uno es inteligente, capaz y vino aquí para aprender...') y el acuerdo de confidencialidad."
+                          },
+                          {
+                            "fase": "2. Fase de Reacciones (Descompresión Inicial)",
+                            "duracion_min": 6,
+                            "banco_preguntas_reaccion": ["Antes de analizar los detalles, ¿cómo se sienten ahora mismo?", "Si tuvieran que describir la simulación en una palabra, ¿cuál sería?"],
+                            "guia_facilitador": "La clave es la escucha activa y la validación de emociones ('Gracias por compartir eso', 'Entiendo que fuera estresante'). No analizar ni corregir. El objetivo es permitir que la tensión se disipe."
+                          },
+                          {
+                            "fase": "3. Fase de Análisis (Descubriendo el Porqué)",
+                            "duracion_min": 15,
+                            "pregunta_inicio_analisis": "Para asegurarnos de que todos estamos en la misma página, ¿podría alguien hacer un breve resumen de lo que ocurrió en el caso desde su perspectiva?",
+                            "exploracion_razonamiento": [
+                                {"momento_clave": "El momento de la primera evaluación del paciente.", "pregunta_advocacy_inquiry": "Observé que la evaluación inicial se centró en [aspecto observado]. Ayúdenme a entender, ¿cuál fue el razonamiento del equipo para priorizar esa área en ese momento?"},
+                                {"momento_clave": "La decisión de administrar un fármaco o realizar una intervención crítica.", "pregunta_advocacy_inquiry": "Noté que la decisión de [administrar fármaco X] se tomó en [minuto Y]. [Nombre del líder], ¿qué datos te llevaron a esa conclusión y qué alternativas consideraron como equipo?"}
+                            ],
+                            "guia_facilitador": "Mantener la curiosidad genuina. Si surge una actitud defensiva, redirigir con: 'Mi intención no es juzgar, sino comprender la perspectiva que tenían con la información disponible en ese momento para que todos podamos aprender'."
+                          },
+                          {
+                            "fase": "4. Fase de Síntesis y Aplicación (Cerrando el Círculo)",
+                            "duracion_min": 10,
+                            "preguntas_mensajes_clave": ["¿Cuáles son los dos o tres mensajes o lecciones más importantes que se llevan de este caso, tanto en lo clínico como en el trabajo en equipo?", "Considerando todo lo que discutimos, ¿cuál es el 'titular' que resume el gran aprendizaje de hoy?"],
+                            "preguntas_transferencia_practica": ["Pensando en un caso similar en su próxima guardia, ¿qué harán exactamente igual y qué podrían hacer diferente?", "¿De qué manera esta experiencia podría cambiar o reforzar algo en su práctica clínica a partir de mañana?"],
+                            "guia_facilitador": "Cierra la sesión resumiendo los puntos clave identificados por el grupo. Agradece nuevamente al equipo por su vulnerabilidad y participación, terminando en una nota constructiva y positiva."
+                          }
+                        ]
+                      },
+                      "pensamiento_critico": {
+                            "categoria_1_adaptabilidad_y_gestion_de_recursos": {
+                                "proposito": "Evaluar la flexibilidad del equipo, su capacidad para improvisar cuando el plan A falla y su conciencia de las limitaciones de los recursos.",
+                                "preguntas": ["Si la norepinefrina no hubiera estado disponible, ¿cuál habría sido su plan B y su plan C para mantener la presión arterial?"]
+                            },
+                            "categoria_2_razonamiento_diagnostico_y_diferencial": {
+                                "proposito": "Explorar la profundidad del proceso diagnóstico, desafiando a los alumnos a justificar sus conclusiones y a considerar alternativas.",
+                                "preguntas": ["Al principio del caso, ¿cuáles eran los tres diagnósticos diferenciales más importantes en su lista y qué datos clave los llevaron a priorizar el shock séptico sobre los otros?"]
+                            },
+                            "categoria_3_metacognicion_y_sesgos_cognitivos": {
+                                "proposito": "Fomentar la reflexión sobre los propios procesos de pensamiento ('pensar sobre cómo pensamos').",
+                                "preguntas": ["¿Qué sesgos cognitivos (ej: anclaje, cierre prematuro) pudieron haber influido en las decisiones del equipo y cómo podemos desarrollar estrategias para mitigarlos en el futuro?"]
+                            },
+                            "categoria_4_comunicacion_factores_humanos_y_edi": {
+                                "proposito": "Extender el análisis más allá de la medicina técnica para incluir la dinámica del equipo, la comunicación y el impacto de la diversidad.",
+                                "preguntas": ["Más allá de la medicina, ¿qué desafíos de comunicación con la familia podrían surgir en un caso de shock séptico, y cómo los abordarían?"]
+                            },
+                            "categoria_5_practica_basada_en_sistemas_y_etica": {
+                                "proposito": "Elevar la perspectiva del equipo desde el paciente individual a los sistemas y procesos.",
+                                "preguntas": ["Si les informaran que no hay camas de UCI disponibles en todo el hospital, ¿cuáles serían los siguientes 3 pasos en su plan de manejo y qué dilemas éticos enfrentan?"]
+                            }
+                        }
+                    }
+                `;
+                
+                try {
+                     let chatHistory = [{ role: "user", parts: [{ text: fullPrompt }] }]; // Use fullPrompt
+                     const payload = { contents: chatHistory };
+                     const apiKey = "AIzaSyA6tnhisz1htKSmmRoMouu-qonafjcYemQ"; // Security: API key is injected by the environment
+                     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    let protocolData = {};
+                    try {
+                        const rawText = result.candidates[0]?.content?.parts[0]?.text;
+                        if (!rawText) {
+                            throw new Error("La respuesta de la IA no tiene texto.");
+                        }
+                        const cleanJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                        protocolData = JSON.parse(cleanJsonText);
+                    } catch (parseError) {
+                        console.error("Error al analizar la respuesta JSON de la IA:", parseError);
+                        showModal(true, `Error al generar el protocolo: La respuesta de la IA no es un JSON válido. (${parseError.message}). Inténtelo de nuevo.`, 'alert');
+                        return; // Stop execution if parsing fails
+                    }
+                    
+                    displayProtocol(topic, protocolData, currentSolicitudData); // Pass solicitudData to display
+                    await addToHistory(topic, protocolData, currentSolicitudData); // Pass solicitudData to history
+
+                } catch (error) {
+                    console.error("Error generating protocol:", error);
+                    showModal(true, `Error al generar el protocolo: ${error.message}. Inténtelo de nuevo.`, 'alert');
+                } finally {
+                    setLoading(false);
+                    grecaptcha.reset();
+                }
+            }
+
+            function displayProtocol(topic, data, solicitudData = {}) {
+                ui.outputTopic.textContent = topic;
+                
+                // Helper to get theme-appropriate heading classes
+                const getHeadingClasses = (level) => {
+                    const baseClasses = "font-bold";
+                    let sizeClass = "";
+                    let colorClasses = "";
+                    let marginClass = "my-4";
+
+                    switch (level) {
+                        case 2: sizeClass = "text-2xl"; colorClasses = "text-gray-900 dark:text-blue-200"; marginClass = "mt-8 mb-3"; break;
+                        case 3: sizeClass = "text-xl"; colorClasses = "text-gray-900 dark:text-blue-300"; marginClass = "mt-6 mb-2"; break;
+                        case 4: sizeClass = "text-lg"; colorClasses = "text-gray-800 dark:text-blue-400"; marginClass = "mt-5 mb-1"; break;
+                        case 5: sizeClass = "text-base"; colorClasses = "text-gray-700 dark:text-blue-500"; marginClass = "mt-4 mb-0.5"; break;
+                        case 6: sizeClass = "text-sm"; colorClasses = "text-gray-700 dark:text-blue-500"; marginClass = "mt-4 mb-0.5"; break;
+                    }
+                    return `${baseClasses} ${sizeClass} ${colorClasses} ${marginClass}`;
+                };
+
+                const renderCaso = (d) => {
+                    if (!d) return '<p>No disponible.</p>';
+                    
+                    let html = `<h3 class="${getHeadingClasses(3)}">${d.titulo || 'Caso Clínico'}</h3>`;
+
+                    if (d.fundamentos_y_objetivos) {
+                        html += `<h4 class="${getHeadingClasses(4)}">Fundamentos y Objetivos</h4>
+                                <p><strong>Necesidad Detectada:</strong> ${d.fundamentos_y_objetivos.necesidad_detectada || 'N/A'}</p>
+                                <p><strong>Audiencia Objetivo:</strong> ${d.fundamentos_y_objetivos.audiencia_objetivo || 'N/A'}</p>`;
+                    }
+
+                    if (d.perfil_del_paciente_edi) {
+                        html += `<h4 class="${getHeadingClasses(4)}">Perfil del Paciente (EDI Integrado)</h4>
+                                <p><strong>Demografía:</strong> ${d.perfil_del_paciente_edi.demografia || 'N/A'}</p>
+                                <p><strong>Historia Médica Pasada:</strong> ${d.perfil_del_paciente_edi.historia_medica_pasada || 'N/A'}</p>
+                                <p><strong>Historia Social y Contexto:</strong> ${d.perfil_del_paciente_edi.historia_social_y_contexto || 'N/A'}</p>`;
+                    }
+                    
+                    if (d.narrativa_y_progresion_dinamica) {
+                        html += `<h4 class="${getHeadingClasses(4)}">Narrativa y Progresión Dinámica del Escenario</h4>`;
+                        if (d.narrativa_y_progresion_dinamica.estado_inicial) {
+                            const inicial = d.narrativa_y_progresion_dinamica.estado_inicial;
+                            html += `<h5 class="${getHeadingClasses(5)}">Estado Inicial</h5>
+                                        <p><strong>Descripción de la Escena:</strong> ${inicial.descripcion_escena || 'N/A'}</p>
+                                        <p><strong>Signos Vitales:</strong> ${inicial.signos_vitales || 'N/A'}</p>
+                                        <p><strong>Examen Físico:</strong> ${inicial.hallazgos_examen_fisico || 'N/A'}</p>`;
+                        }
+                        if (d.narrativa_y_progresion_dinamica.progresion_del_escenario && d.narrativa_y_progresion_dinamica.progresion_del_escenario.length > 0) {
+                            html += `<h5 class="${getHeadingClasses(5)}">Progresión del Escenario</h5>`;
+                            d.narrativa_y_progresion_dinamica.progresion_del_escenario.forEach((estado, index) => {
+                                html += `<h6 class="${getHeadingClasses(6)}">Estado ${index + 1}: ${estado.estado_nombre || ''}</h6>
+                                        <p><strong>Descripción Clínica:</strong> ${estado.descripcion_clinica || 'N/A'}</p>
+                                        <p><strong>Desencadenante para siguiente estado:</strong> ${estado.desencadenante_para_siguiente_estado || 'N/A'}</p>`;
+                            });
+                        }
+                        if (d.narrativa_y_progresion_dinamica.puntos_finales_escenario) {
+                            const finales = d.narrativa_y_progresion_dinamica.puntos_finales_escenario;
+                            html += `<h5 class="${getHeadingClasses(5)}">Puntos Finales del Escenario</h5>
+                                        <p><strong>Criterio Ideal de Finalización:</strong> ${finales.criterio_ideal || 'N/A'}</p>
+                                        <p><strong>Criterio de Tiempo:</strong> ${finales.criterio_de_tiempo || 'N/A'}</p>
+                                        <p><strong>Criterio de Detención de Seguridad:</strong> ${finales.criterio_de_detencion || 'N/A'}</p>`;
+                        }
+                    }
+
+                    return html;
+                };
+
+                const renderObjetivos = (d) => d ? `
+                    <h3 class="${getHeadingClasses(3)}">Objetivos de Aprendizaje</h3>
+                    <h4 class="${getHeadingClasses(4)}">Generales</h4>
+                    <ul>${d.generales ? d.generales.map(o => `<li>${o}</li>`).join('') : '<li>No disponible.</li>'}</ul>
+                    <h4 class="${getHeadingClasses(4)}">Específicos</h4>
+                    <ul>${d.especificos ? d.especificos.map(o => `<li>${o}</li>`).join('') : '<li>No disponible.</li>'}</ul>
+                ` : '<p>No disponible.</p>';
+
+                const renderPrebriefing = (d) => {
+                    if (!d || !d.fases) return '<p>No disponible.</p>';
+                    return `<h3 class="${getHeadingClasses(3)}">${d.titulo || 'Prebriefing Detallado'}</h3>` + d.fases.map(fase => {
+                        let content = `<h4 class="${getHeadingClasses(4)}">${fase.fase} (~${fase.duracion_min} min)</h4>`;
+                        if (fase.script_premisa_basica_y_errores) content += `<h5 class="${getHeadingClasses(5)}">Script: Premisa Básica y Errores</h5><blockquote>${fase.script_premisa_basica_y_errores}</blockquote>`;
+                        if (fase.acuerdo_confidencialidad_detallado) content += `<h5 class="${getHeadingClasses(5)}">Acuerdo de Confidencialidad</h5><p>${fase.acuerdo_confidencialidad_detallado}</p>`;
+                        if (fase.mecanismo_pausa_seguridad) content += `<h5 class="${getHeadingClasses(5)}">Mecanismo de Pausa/Seguridad</h5><p>${fase.mecanismo_pausa_seguridad}</p>`;
+                        if (fase.orientacion_entorno_y_equipo) content += `<h5 class="${getHeadingClasses(5)}">Orientación al Entorno</h5><p>${fase.orientacion_entorno_y_equipo}</p>`;
+                        if (fase.capacidades_y_limitaciones_simulador) {
+                            content += `<h5 class="${getHeadingClasses(5)}">Capacidades y Limitaciones del Simulador</h5><ul>`;
+                            if(fase.capacidades_y_limitaciones_simulador.capacidades) content += `<li><strong>Capacidades:</strong> ${fase.capacidades_y_limitaciones_simulador.capacidades}</li>`;
+                            if(fase.capacidades_y_limitaciones_simulador.limitaciones) content += `<li><strong>Limitaciones:</strong> ${fase.capacidades_y_limitaciones_simulador.limitaciones}</li>`;
+                            content += `</ul>`;
+                        }
+                        if (fase.script_contrato_ficcion) content += `<h5 class="${getHeadingClasses(5)}">Script: Contrato de Ficción</h5><blockquote>${fase.script_contrato_ficcion}</blockquote>`;
+                        if (fase.objetivos_aprendizaje_claros && Array.isArray(fase.objetivos_aprendizaje_claros)) {
+                            content += `<h5 class="${getHeadingClasses(5)}">Objetivos Clave de la Sesión</h5><ul>${fase.objetivos_aprendizaje_claros.map(o => `<li>${o}</li>`).join('')}</ul>`;
+                        } else if (fase.objetivos_aprendizaje_claros) { 
+                            content += `<h5 class="${getHeadingClasses(5)}">Objetivos Clave de la Sesión</h5><p>${fase.objetivos_aprendizaje_claros}</p>`;
+                        }
+                        if (fase.reporte_entrega_clinico) content += `<h5 class="${getHeadingClasses(5)}">Reporte de Entrega (Handover)</h5><blockquote>${fase.reporte_entrega_clinico}</blockquote>`;
+                        if (fase.definicion_roles_participantes) content += `<h5 class="${getHeadingClasses(5)}">Roles de Participantes</h5><p>${fase.definicion_roles_participantes}</p>`;
+                        if (fase.definicion_rol_facilitador) content += `<h5 class="${getHeadingClasses(5)}">Rol del Facilitador</h5><p>${fase.definicion_rol_facilitador}</p>`;
+                        if (fase.script_cierre_y_preguntas) content += `<h5 class="${getHeadingClasses(5)}">Cierre y Preguntas Finales</h5><blockquote>${fase.script_cierre_y_preguntas}</blockquote>`;
+                        
+                        return content;
+                    }).join('');
+                };
+
+                const renderDebriefing = (d) => {
+                    if (!d || !d.fases) return '<p>No disponible.</p>';
+                     return `<h3 class="${getHeadingClasses(3)}">${d.titulo || 'Debriefing Estructurado'}</h3>` + d.fases.map(fase => {
+                        let content = `<h4 class="${getHeadingClasses(4)}">${fase.fase} (~${fase.duracion_min} min)</h4>`;
+                        if(fase.script_apertura) content += `<h5 class="${getHeadingClasses(5)}">Guion de Apertura</h5><blockquote>${fase.script_apertura}</blockquote>`;
+                        if(fase.reafirmacion_ambiente_seguro) content += `<h5 class="${getHeadingClasses(5)}">Reafirmación del Ambiente Seguro</h5><blockquote>${fase.reafirmacion_ambiente_seguro}</blockquote>`;
+                        if(fase.banco_preguntas_reaccion) content += `<h5 class="${getHeadingClasses(5)}">Preguntas de Reacción Sugeridas</h5><ul>${fase.banco_preguntas_reaccion.map(p => `<li>${p}</li>`).join('')}</ul>`;
+                        if(fase.pregunta_inicio_analisis) content += `<h5 class="${getHeadingClasses(5)}">Inicio del Análisis</h5><p>${fase.pregunta_inicio_analisis}</p>`;
+                        if(fase.exploracion_razonamiento) content += `<h5 class="${getHeadingClasses(5)}">Exploración del Razonamiento (Momentos Clave)</h5><ul>${fase.exploracion_razonamiento.map(e => `<li><strong>${e.momento_clave}</strong><br><em>${e.pregunta_advocacy_inquiry}</em></li>`).join('')}</ul>`;
+                        if(fase.preguntas_mensajes_clave) content += `<h5 class="${getHeadingClasses(5)}">Identificación de Mensajes Clave</h5><ul>${fase.preguntas_mensajes_clave.map(p => `<li>${p}</li>`).join('')}</ul>`;
+                        if(fase.preguntas_transferencia_practica) content += `<h5 class="${getHeadingClasses(5)}">Planes de Transferencia a la Práctica</h5><ul>${fase.preguntas_transferencia_practica.map(p => `<li>${p}</li>`).join('')}</ul>`;
+                        if(fase.guia_facilitador) content += `<h5 class="${getHeadingClasses(5)}">Guía para el Facilitador</h5><p>${fase.guia_facilitador}</p>`;
+                        
+                        return content;
+                    }).join('');
+                };
+
+                const renderCritico = (d) => {
+                    if (!d) return '<p>No disponible.</p>';
+
+                    let html = `<h3 class="${getHeadingClasses(3)}">Preguntas para Fomentar el Pensamiento Crítico</h3>`;
+
+                    for (const categoryKey in d) {
+                        const category = d[categoryKey];
+                        if (category) {
+                            const formattedCategoryTitle = categoryKey
+                                .replace(/categoria_\d+_/, '') 
+                                .replace(/_/g, ' ') 
+                                .replace(/\b\w/g, char => char.toUpperCase()); 
+
+                            html += `<h4 class="${getHeadingClasses(4)}">${formattedCategoryTitle}</h4>`;
+                            if (category.proposito) {
+                                html += `<p><strong>Propósito:</strong> ${category.proposito}</p>`;
+                            }
+                            if (category.solicitud) {
+                                html += `<p><strong>Solicitud:</strong> ${category.solicitud}</p>`;
+                            }
+                            if (category.preguntas && Array.isArray(category.preguntas) && category.preguntas.length > 0) {
+                                html += `<h5 class="${getHeadingClasses(5)}">Preguntas:</h5><ol>${category.preguntas.map(p => `<li>${p}</li>`).join('')}</ol>`;
+                            } else {
+                                html += `<p>No hay preguntas disponibles para esta categoría.</p>`;
+                            }
+                        }
+                    }
+                    return html;
+                };
+
+                // New function to render the Solicitudes de Simulación form
+                const renderSolicitudesSimulacionForm = (solicitudData) => {
+                    ui.solicitudActividadNombre.value = solicitudData.actividad_nombre || '';
+                    ui.solicitudAsignatura.value = solicitudData.asignatura || '';
+                    ui.solicitudCarrera.value = solicitudData.carrera || '';
+                    ui.solicitudResponsableNombre.value = solicitudData.responsable_nombre || '';
+                    ui.solicitudResponsableContacto.value = solicitudData.responsable_contacto || '';
+                    ui.solicitudTutores.value = solicitudData.tutores_participantes || '';
+                    ui.solicitudEstudiantesPorTutor.value = solicitudData.estudiantes_por_tutor || '';
+                    ui.solicitudFechaActividad.value = solicitudData.fecha_actividad || '';
+                    ui.solicitudHorario.value = solicitudData.horario_actividad || '';
+                    
+                    ui.solicitudSalaDebriefing.checked = solicitudData.salas_solicitadas?.debriefing || false;
+                    ui.solicitudSalaBoxReanimacion.checked = solicitudData.salas_solicitadas?.box_reanimacion || false;
+                    ui.solicitudSalasExtra.value = solicitudData.salas_solicitadas?.extras || '';
+
+                    ui.solicitudSimuladores.value = solicitudData.simuladores_fantasmas || '';
+                    ui.solicitudActorHoras.value = solicitudData.actor_horas || '';
+                    ui.solicitudEquipamientoMedico.value = solicitudData.equipamiento_medico || '';
+                    ui.solicitudInsumos.value = solicitudData.insumos || '';
+
+                    ui.solicitudGrabacionSi.checked = (solicitudData.requiere_grabacion_transmision === 'Si');
+                    ui.solicitudGrabacionNo.checked = (solicitudData.requiere_grabacion_transmision === 'No');
+                    ui.solicitudGrabacionEspecificacion.value = solicitudData.grabacion_especificacion || '';
+                };
+
+
+                document.getElementById('tab-content-caso').innerHTML = renderCaso(data.caso_clinico);
+                document.getElementById('tab-content-objetivos').innerHTML = renderObjetivos(data.objetivos_aprendizaje);
+                document.getElementById('tab-content-prebriefing').innerHTML = renderPrebriefing(data.prebriefing_detallado);
+                document.getElementById('tab-content-debriefing').innerHTML = renderDebriefing(data.debriefing_estructurado);
+                document.getElementById('tab-content-critico').innerHTML = renderCritico(data.pensamiento_critico);
+                renderSolicitudesSimulacionForm(solicitudData); // Render the form with loaded data
+
+                ui.protocolOutput.classList.remove('hidden');
+                switchTab('caso');
+                ui.protocolOutput.scrollIntoView({ behavior: 'smooth' });
+            }
+
+
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    ui.spinner.classList.remove('hidden');
+                    ui.buttonText.textContent = 'Generando...';
+                    ui.generateButton.disabled = true;
+                } else {
+                    ui.spinner.classList.add('hidden');
+                    ui.buttonText.textContent = '✨ Generar con IA';
+                    ui.generateButton.disabled = false;
+                }
+            }
+            
+            function switchTab(tabId) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+                document.getElementById(`tab-content-${tabId}`).classList.add('active');
+                document.querySelector(`button[data-tab="${tabId}"]`).classList.add('active');
+            }
+            
+            function showModal(visible, message = '', type = 'alert', onConfirm = null) {
+                 ui.modalMessage.innerHTML = message; // Use innerHTML to allow for line breaks
+                 confirmAction = onConfirm;
+
+                 if (type === 'confirm') {
+                     ui.modalConfirmButton.classList.remove('hidden');
+                     ui.modalCancelButton.classList.remove('hidden');
+                     ui.modalCloseButton.classList.add('hidden');
+                 } else { 
+                     ui.modalConfirmButton.classList.add('hidden');
+                     ui.modalCancelButton.classList.add('hidden');
+                     ui.modalCloseButton.classList.remove('hidden');
+                 }
+                
+                if (visible) {
+                    ui.modal.classList.add('visible');
+                } else {
+                    ui.modal.classList.remove('visible');
+                    confirmAction = null;
+                }
+            }
+
+            async function downloadReport(format) {
+                const { jsPDF } = window.jspdf;
+                const topic = ui.outputTopic.textContent.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'protocolo';
+                const filename = `protocolo_${topic}`;
+                const title = `Protocolo de Simulación: ${ui.outputTopic.textContent}`;
+
+                const exportContainer = document.createElement('div');
+                exportContainer.style.padding = '20px'; // Add padding for better PDF layout
+                exportContainer.innerHTML = `<h1>${title}</h1>`;
+
+                // Add content from all tabs to the export container
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    const tabTitle = document.querySelector(`button[data-tab="${tab.id.replace('tab-content-','')}"]`).textContent;
+                    const sectionWrapper = document.createElement('div');
+                    sectionWrapper.style.pageBreakBefore = 'always';
+                    
+                    if (tab.id === 'tab-content-solicitudes') {
+                        let formContentHtml = `<h2>${tabTitle}</h2>`;
+                        const formElements = tab.querySelectorAll('input, textarea');
+                        formElements.forEach(element => {
+                            if (element.type === 'hidden' || (element.type === 'radio' && !element.checked)) return;
+
+                            let labelText = '';
+                            let labelElement = element.id ? tab.querySelector(`label[for="${element.id}"]`) : null;
+                            if (!labelElement) {
+                                labelElement = element.closest('div')?.querySelector('label');
+                            }
+                            labelText = labelElement ? labelElement.textContent.replace(':', '').trim() : (element.placeholder || element.id);
+
+                            let value = (element.type === 'checkbox') ? (element.checked ? 'Sí' : 'No') : element.value;
+                            if (value && value.trim() !== '') {
+                                formContentHtml += `<p><strong>${labelText}:</strong> ${value}</p>`;
+                            }
+                        });
+                        sectionWrapper.innerHTML = formContentHtml;
+                    } else {
+                        sectionWrapper.innerHTML = `<h2>${tabTitle}</h2>${tab.innerHTML}`;
+                    }
+                    exportContainer.appendChild(sectionWrapper);
+                });
+
+                switch (format) {
+                    case 'pdf':
+                        showModal(true, 'Generando PDF, por favor espere...', 'alert');
+                        const pdf = new jsPDF({
+                            orientation: 'p',
+                            unit: 'mm',
+                            format: 'a4'
+                        });
+                        try {
+                            await pdf.html(exportContainer, {
+                                callback: function (doc) {
+                                    doc.save(`${filename}.pdf`);
+                                    showModal(false);
+                                },
+                                x: 15,
+                                y: 15,
+                                width: 180, 
+                                windowWidth: 800
+                            });
+                        } catch (e) {
+                           console.error("PDF export failed", e);
+                           showModal(true, 'Error al exportar a PDF.', 'alert');
+                        }
+                        break;
+                    case 'docx':
+                           const docxContent = `
+                                   <!DOCTYPE html>
+                                   <html>
+                                   <head>
+                                     <meta charset="UTF-8">
+                                     <style>
+                                         body { font-family: Calibri, sans-serif; font-size: 11pt; }
+                                         h1 { font-size: 16pt; color: #1e3a8a; }
+                                         h2 { font-size: 14pt; color: #1d4ed8; page-break-before: always; }
+                                         h3, h4, h5, h6 { color: #1e40af; }
+                                         blockquote { font-style: italic; border-left: 2px solid #ccc; padding-left: 10px; }
+                                     </style>
+                                   </head>
+                                   <body>${exportContainer.innerHTML}</body>
+                                   </html>
+                                   `;
+                           const converted = htmlDocx.asBlob(docxContent);
+                           saveAs(converted, `${filename}.docx`);
+                        break;
+                    case 'txt':
+                        let textContent = ``;
+                        document.querySelectorAll('.tab-content').forEach(tab => {
+                            const tabTitle = document.querySelector(`button[data-tab="${tab.id.replace('tab-content-','')}"]`).textContent;
+                            textContent += `\n\n--- ${tabTitle.toUpperCase()} ---\n\n`;
+
+                            if (tab.id === 'tab-content-solicitudes') {
+                                const formElements = tab.querySelectorAll('input, textarea');
+                                 formElements.forEach(element => {
+                                    if (element.type === 'hidden' || (element.type === 'radio' && !element.checked) ) return;
+                                    let labelText = '';
+                                    let labelElement = element.id ? tab.querySelector(`label[for="${element.id}"]`) : null;
+                                    if (!labelElement) {
+                                        labelElement = element.closest('div')?.querySelector('label');
+                                    }
+                                    labelText = labelElement ? labelElement.textContent.replace(':', '').trim() : (element.placeholder || element.id);
+                                    let value = (element.type === 'checkbox') ? (element.checked ? 'Sí' : 'No') : element.value;
+                                    if (value && value.trim() !== '') {
+                                        textContent += `${labelText}: ${value}\n`;
+                                    }
+                                });
+                            } else {
+                                textContent += tab.innerText; 
+                            }
+                        });
+                        const blob = new Blob([textContent.replace(/\n\n\n/g, '\n\n')], { type: "text/plain;charset=utf-8" });
+                        saveAs(blob, `${filename}.txt`);
+                        break;
+                }
+            }
+            
+            function resetApp() {
+                ui.topicInput.value = '';
+                ui.fileStatus.textContent = '';
+                contextualFilesContent = '';
+                ui.contextFileInput.value = ''; 
+                grecaptcha.reset();
+                ui.protocolOutput.classList.add('hidden');
+                switchTab('caso');
+
+                // Reset all form fields in Solicitudes
+                const formElements = document.getElementById('tab-content-solicitudes').querySelectorAll('input, textarea');
+                formElements.forEach(el => {
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        el.checked = false;
+                    } else {
+                        el.value = '';
+                    }
+                });
+
+                if (document.querySelector('input[name="fidelityLevel"]')) {
+                    document.querySelector('input[name="fidelityLevel"][value="ALTA FIDELIDAD"]').checked = true;
+                }
+
+                ui.topicInput.focus();
+            }
+
+            document.getElementById('newProtocolButton').addEventListener('click', resetApp);
+
+            function saveToGoogleDrive() {
+                showModal(true, `La integración con Google Drive requiere autenticación (OAuth 2.0) y un servicio de backend para manejar la API de Drive. Actualmente, esta funcionalidad se simula.
+                <br><br>En una aplicación completa, esto guardaría el protocolo en tu Drive.`, 'alert');
+            }
+        });
+
+    </script>
+</body>
+</html>
